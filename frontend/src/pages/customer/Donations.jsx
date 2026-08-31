@@ -1,0 +1,10 @@
+import { useState } from "react";
+import { HeartHandshake } from "lucide-react";
+import PageContainer from "../../components/layout/PageContainer";
+import SectionHeading from "../../components/common/SectionHeading";
+import Card from "../../components/common/Card";
+import Button from "../../components/common/Button";
+import { useData } from "../../context/DataContext";
+import { useAuth } from "../../context/AuthContext";
+function Donations(){const {products,donations,addDonation}=useData();const {user}=useAuth();const owned=products.filter(p=>p.ownerId===user?.id);const [loading,setLoading]=useState("");async function start(product){setLoading(product.id);try{await addDonation({productId:product.id});}catch(err){alert(err.message);}finally{setLoading("");}}return <PageContainer className="space-y-6 py-8"><SectionHeading eyebrow="Donations" title="Give a product another life" description="Choose a registered product and route it toward a community use instead of replacing it."/><div className="grid gap-4 lg:grid-cols-2">{owned.map(p=><Card key={p.id}><div className="flex items-start justify-between gap-4"><div><h3 className="font-display text-lg font-bold">{p.name}</h3><p className="mt-1 text-xs text-reloop-espresso/45">{p.condition} · {p.category}</p></div><HeartHandshake className="text-reloop-orange" size={20}/></div><Button className="mt-6 w-full" loading={loading===p.id} onClick={()=>start(p)}>Start donation</Button></Card>)}{owned.length===0&&<Card><p className="text-sm text-reloop-espresso/50">Register a product before starting a donation.</p></Card>}</div>{donations.length>0&&<Card><h3 className="font-display text-lg font-bold">Your donation requests</h3><div className="mt-4 space-y-3">{donations.map(d=><div key={d._id} className="flex items-center justify-between rounded-xl border border-reloop-espresso/8 p-4 text-sm"><span>{d.productId?.name||'Product'}</span><span className="rounded-full bg-reloop-chartreuse px-3 py-1 text-xs font-semibold">{d.status}</span></div>)}</div></Card>}</PageContainer>}
+export default Donations;

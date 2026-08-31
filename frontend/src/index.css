@@ -1,0 +1,55 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap");
+
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Space Grotesk", sans-serif;
+  --font-body: "DM Sans", sans-serif;
+  --font-mono: "IBM Plex Mono", monospace;
+
+  --color-reloop-orange: #e85d3f;
+  --color-reloop-ivory: #f7f1e8;
+  --color-reloop-espresso: #211a17;
+  --color-reloop-clay: #c98b6b;
+  --color-reloop-chartreuse: #c8e34a;
+  --color-reloop-neutral: #e6ded3;
+}
+
+:root {
+  font-family: "DM Sans", sans-serif;
+  color: #211a17;
+  background: #f7f1e8;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background: #f7f1e8;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+::selection {
+  background: #c8e34a;
+  color: #211a17;
+}

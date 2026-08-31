@@ -1,0 +1,18 @@
+import { Router } from "express";
+import Message from "../models/Message.js";
+import Listing from "../models/Listing.js";
+import Notification from "../models/Notification.js";
+import Donation from "../models/Donation.js";
+import Recycling from "../models/Recycling.js";
+import Product from "../models/Product.js";
+import User from "../models/User.js";
+import { sendMail } from "../config/mail.js";
+import { auth } from "../middleware/auth.js";
+const router=Router();
+router.post('/messages',auth,async(req,res)=>{try{const listing=await Listing.findById(req.body.listingId);if(!listing)return res.status(404).json({message:'Listing not found.'});const m=await Message.create({senderId:req.user.id,recipientId:listing.sellerId,listingId:listing._id,message:req.body.message||'I am interested in your product.'});await Notification.create({userId:listing.sellerId,title:'New marketplace message',message:`A buyer sent you a message about ${listing.title}.`,type:'message'}); const seller=await User.findById(listing.sellerId); if(seller?.email) await sendMail({to:seller.email,subject:'New ReLoop marketplace inquiry',text:`A buyer is interested in ${listing.title}. Sign in to ReLoop to review the inquiry.`}); res.status(201).json(m);}catch(e){res.status(500).json({message:e.message});}});
+router.get('/messages',auth,async(req,res)=>{res.json(await Message.find({$or:[{senderId:req.user.id},{recipientId:req.user.id}]}).sort({createdAt:-1}));});
+router.get('/donations',auth,async(req,res)=>res.json(await Donation.find({userId:req.user.id}).populate('productId','name condition category').sort({createdAt:-1})));
+router.post('/donations',auth,async(req,res)=>{try{const p=await Product.findOne({_id:req.body.productId,ownerId:req.user.id});if(!p)return res.status(404).json({message:'Product not found.'});const d=await Donation.create({userId:req.user.id,productId:p._id,organization:req.body.organization,note:req.body.note});p.lifecycleStatus='Donation Requested';await p.save();await Notification.create({userId:req.user.id,title:'Donation request created',message:`${p.name} was submitted for donation.`,type:'donation'});res.status(201).json(d);}catch(e){res.status(500).json({message:e.message});}});
+router.get('/recycling',auth,async(req,res)=>res.json(await Recycling.find({userId:req.user.id}).populate('productId','name condition category').sort({createdAt:-1})));
+router.post('/recycling',auth,async(req,res)=>{try{const p=await Product.findOne({_id:req.body.productId,ownerId:req.user.id});if(!p)return res.status(404).json({message:'Product not found.'});const r=await Recycling.create({userId:req.user.id,productId:p._id,center:req.body.center,note:req.body.note});p.lifecycleStatus='Recycling Requested';await p.save();await Notification.create({userId:req.user.id,title:'Recycling request created',message:`${p.name} was prepared for responsible recycling.`,type:'recycling'});res.status(201).json(r);}catch(e){res.status(500).json({message:e.message});}});
+export default router;

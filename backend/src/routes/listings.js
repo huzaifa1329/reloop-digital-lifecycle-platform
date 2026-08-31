@@ -1,0 +1,15 @@
+import { Router } from "express";
+import mongoose from "mongoose";
+import Listing from "../models/Listing.js";
+import Product from "../models/Product.js";
+import Notification from "../models/Notification.js";
+import { auth, requireRole } from "../middleware/auth.js";
+const router=Router(); const valid=id=>mongoose.Types.ObjectId.isValid(id);
+router.get('/',async(req,res)=>{try{res.json(await Listing.find({status:'Active'}).sort({createdAt:-1}));}catch(e){res.status(500).json({message:e.message});}});
+router.get('/mine',auth,async(req,res)=>{try{res.json(await Listing.find({sellerId:req.user.id}).sort({createdAt:-1}));}catch(e){res.status(500).json({message:e.message});}});
+router.get('/all/admin',auth,requireRole('admin'),async(req,res)=>{res.json(await Listing.find().sort({createdAt:-1}));});
+router.get('/:id',async(req,res)=>{try{if(!valid(req.params.id))return res.status(400).json({message:'Invalid listing id.'});const l=await Listing.findById(req.params.id);if(!l||l.status==='Removed')return res.status(404).json({message:'Listing not found.'});res.json(l);}catch(e){res.status(500).json({message:e.message});}});
+router.post('/',auth,async(req,res)=>{try{const p=req.body.productId?await Product.findOne({_id:req.body.productId,ownerId:req.user.id}):null;if(!p)return res.status(404).json({message:'Select one of your registered products first.'});const l=await Listing.create({...req.body,sellerId:req.user.id,productId:p._id,title:req.body.title||p.name,name:p.name,brand:p.brand,model:p.model,category:p.category,condition:p.condition,health:req.body.health||0,imageUrl:req.body.imageUrl||p.imageUrl||''});await Notification.create({userId:req.user.id,title:'Listing submitted',message:`${l.title} is waiting for admin approval.`,type:'marketplace'});res.status(201).json(l);}catch(e){res.status(e.name==='ValidationError'?400:500).json({message:e.message});}});
+router.patch('/:id',auth,async(req,res)=>{try{const l=await Listing.findOneAndUpdate({_id:req.params.id,sellerId:req.user.id},req.body,{new:true,runValidators:true});if(!l)return res.status(404).json({message:'Listing not found.'});res.json(l);}catch(e){res.status(500).json({message:e.message});}});
+router.patch('/:id/status',auth,requireRole('admin'),async(req,res)=>{try{const {status}=req.body;if(!['Pending Review','Active','Removed'].includes(status))return res.status(400).json({message:'Invalid status value.'});const l=await Listing.findByIdAndUpdate(req.params.id,{status,verified:status==='Active'},{new:true});if(!l)return res.status(404).json({message:'Listing not found.'});await Notification.create({userId:l.sellerId,title:`Listing ${status === 'Active' ? 'approved' : status === 'Removed' ? 'removed' : 'updated'}`,message:`${l.title} is now ${status}.`,type:'marketplace'});res.json(l);}catch(e){res.status(500).json({message:e.message});}});
+export default router;
