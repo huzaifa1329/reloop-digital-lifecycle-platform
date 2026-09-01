@@ -19,12 +19,6 @@ const app = express();
 
 const PORT = process.env.PORT || 5000;
 
-/*
-|--------------------------------------------------------------------------
-| CORS
-|--------------------------------------------------------------------------
-*/
-
 app.use(
   cors({
     origin: process.env.CLIENT_URL || "http://localhost:5173",
@@ -32,188 +26,80 @@ app.use(
   })
 );
 
-/*
-|--------------------------------------------------------------------------
-| Body Parser
-|--------------------------------------------------------------------------
-*/
+app.use(express.json({ limit: "12mb" }));
 
-app.use(
-  express.json({
-    limit: "12mb",
-  })
-);
+// Health check
+app.get("/api/health", (req, res) => {
+  res.json({
+    ok: true,
+    service: "ReLoop API",
+    time: new Date().toISOString(),
+  });
+});
 
-/*
-|--------------------------------------------------------------------------
-| Database Connection
-|--------------------------------------------------------------------------
-|
-| In local development the database is connected before starting
-| the HTTP server.
-|
-| On Vercel, the Express app is exported and the database connection
-| is established when a request reaches the application.
-|
-*/
+// Database connection cache
+let dbPromise;
 
-let databaseConnectionPromise = null;
-
-async function ensureDatabaseConnection() {
-  if (!databaseConnectionPromise) {
-    databaseConnectionPromise = connectDB().catch((error) => {
-      databaseConnectionPromise = null;
-      throw error;
-    });
+async function ensureDatabase() {
+  if (!dbPromise) {
+    dbPromise = connectDB().then(seedDemoData);
   }
 
-  return databaseConnectionPromise;
+  return dbPromise;
 }
 
-/*
-|--------------------------------------------------------------------------
-| Health Check
-|--------------------------------------------------------------------------
-*/
-
-app.get("/api/health", async (req, res) => {
+// Connect to MongoDB before API requests
+app.use(async (req, res, next) => {
   try {
-    await ensureDatabaseConnection();
-
-    res.json({
-      ok: true,
-      service: "ReLoop API",
-      database: "connected",
-      time: new Date().toISOString(),
-    });
-  } catch (error) {
-    console.error("Health check database error:", error.message);
-
-    res.status(503).json({
-      ok: false,
-      service: "ReLoop API",
-      database: "disconnected",
-      message: "Database connection unavailable.",
-    });
-  }
-});
-
-/*
-|--------------------------------------------------------------------------
-| Database Middleware
-|--------------------------------------------------------------------------
-|
-| Every API request requires MongoDB.
-|
-*/
-
-app.use("/api", async (req, res, next) => {
-  try {
-    await ensureDatabaseConnection();
+    await ensureDatabase();
     next();
   } catch (error) {
-    console.error("Database connection error:", error.message);
+    console.error("Database connection failed:", error.message);
 
-    res.status(503).json({
-      message: "Database connection unavailable.",
+    res.status(500).json({
+      message: "Database connection failed.",
     });
   }
 });
 
-/*
-|--------------------------------------------------------------------------
-| API Routes
-|--------------------------------------------------------------------------
-*/
-
+// API routes
 app.use("/api/auth", authRoutes);
-
 app.use("/api/products", productRoutes);
-
 app.use("/api/listings", listingRoutes);
-
 app.use("/api/notifications", notificationRoutes);
-
 app.use("/api/repairs", repairRoutes);
-
 app.use("/api/providers", providerRoutes);
-
 app.use("/api/admin", adminRoutes);
-
 app.use("/api", engagementRoutes);
 
-/*
-|--------------------------------------------------------------------------
-| API 404 Handler
-|--------------------------------------------------------------------------
-*/
-
+// API 404 handler
 app.use("/api", (req, res) => {
   res.status(404).json({
     message: "Not found.",
   });
 });
 
-/*
-|--------------------------------------------------------------------------
-| Global Error Handler
-|--------------------------------------------------------------------------
-*/
-
+// Global error handler
 app.use((err, req, res, next) => {
-  console.error("Unhandled server error:", err);
+  console.error(err);
 
   res.status(err.status || 500).json({
     message: err.message || "Internal server error.",
   });
 });
 
-/*
-|--------------------------------------------------------------------------
-| Environment Validation
-|--------------------------------------------------------------------------
-*/
-
-if (!process.env.JWT_SECRET) {
-  console.warn(
-    "WARNING: JWT_SECRET is not configured. Authentication will not work correctly."
-  );
-}
-
-/*
-|--------------------------------------------------------------------------
-| Local Development
-|--------------------------------------------------------------------------
-|
-| Vercel will use the exported Express app.
-| We only start app.listen() during local development.
-|
-*/
-
+// Local development server
 if (process.env.NODE_ENV !== "production") {
-  ensureDatabaseConnection()
-    .then(() => seedDemoData())
+  ensureDatabase()
     .then(() => {
       app.listen(PORT, () => {
-        console.log(
-          `ReLoop API running on http://localhost:${PORT}`
-        );
+        console.log(`ReLoop API running on http://localhost:${PORT}`);
       });
     })
     .catch((error) => {
-      console.error(
-        "Server startup failed:",
-        error.message
-      );
-
+      console.error("Server startup failed:", error.message);
       process.exit(1);
     });
 }
-
-/*
-|--------------------------------------------------------------------------
-| Export Express App
-|--------------------------------------------------------------------------
-*/
 
 export default app;
