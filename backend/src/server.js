@@ -28,6 +28,16 @@ app.use(
 
 app.use(express.json({ limit: "12mb" }));
 
+// Root API status
+app.get("/", (req, res) => {
+  res.json({
+    ok: true,
+    service: "ReLoop API",
+    status: "running",
+    message: "ReLoop backend is running successfully.",
+  });
+});
+
 // Health check
 app.get("/api/health", (req, res) => {
   res.json({
